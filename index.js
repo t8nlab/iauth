@@ -1,7 +1,7 @@
 import { jwt, url } from "@titanpl/native"
 import "@titanpl/node/globals"
 import bcrypt from "bcryptjs"
-import { registerExtension } from "./utils/registerExtension.js";
+import { registerExtension } from "./utils/registerExtension";
 
 const oauthProviders = {
   google: {

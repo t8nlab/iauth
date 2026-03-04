@@ -1,6 +1,6 @@
 {
   "name": "@t8n/iauth",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "An intelligent auth extension for TitanPL framework.",
   "keywords": [
     "auth",
@@ -12,7 +12,8 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "titan.json"
+    "titan.json",
+    "/utils"
   ],
   "license": "ISC",
   "author": "ezetgalaxy",
