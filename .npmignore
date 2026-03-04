@@ -1,0 +1,36 @@
+# Development folders
+node_modules
+tests
+examples
+docs
+
+# Git files
+.git
+.gitignore
+.github
+
+# Editor configs
+.vscode
+.idea
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Test coverage
+coverage
+
+# Temporary files
+tmp
+temp
+
+# CI configs
+.github
+.gitlab-ci.yml
+
+# Misc
+*.ts
+*.map

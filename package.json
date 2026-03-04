@@ -1,0 +1,26 @@
+{
+  "name": "@t8n/iauth",
+  "version": "1.0.0",
+  "description": "A inteligent auth extension for TitanPl framework.",
+  "keywords": [
+    "auth",
+    "titan",
+    "t8n",
+    "titanpl",
+    "iauth"
+  ],
+  "license": "ISC",
+  "author": "ezetgalaxy",
+  "type": "module",
+  "main": "index.js",
+  "types": "./index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@titanpl/core": "^26.17.1",
+    "@titanpl/native": "^2.0.3",
+    "@titanpl/node": "^26.17.1",
+    "bcryptjs": "^3.0.3"
+  }
+}
