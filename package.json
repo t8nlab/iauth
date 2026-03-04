@@ -18,9 +18,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@titanpl/core": "^26.17.1",
-    "@titanpl/native": "^2.0.3",
-    "@titanpl/node": "^26.17.1",
+    "@titanpl/core": "latest",
+    "@titanpl/native": "latest",
+    "@titanpl/node": "latest",
     "bcryptjs": "^3.0.3"
   }
 }
