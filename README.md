@@ -323,15 +323,15 @@ The user is redirected to the OAuth provider.
 import { response } from "@titanpl/native"
 import { auth } from "../auth/config"
 
-export async function getuser(req) {
+export function getuser(req) {
 
   const google = auth.oauth("google")
 
   const { code } = req.query
 
-  const tokenData = await google.exchange(code)
+  const tokenData = google.exchange(code)
 
-  const profile = await google.profile(tokenData.access_token)
+  const profile = google.profile(tokenData.access_token)
 
   const token = auth.signToken({
     email: profile.email
