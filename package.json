@@ -1,6 +1,6 @@
 {
   "name": "@t8n/iauth",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A inteligent auth extension for TitanPl framework.",
   "keywords": [
     "auth",

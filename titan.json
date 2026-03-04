@@ -1,0 +1,7 @@
+{
+  "name": "@t8n/iauth",
+  "version": "1.5.0",
+  "main": "index.js",
+  "description": "A inteligent auth extension for TitanPl framework."
+}
+  

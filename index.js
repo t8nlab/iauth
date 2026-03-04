@@ -266,4 +266,6 @@ class IAuth {
 
 }
 
+registerExtension("auth", IAuth);
+
 export default IAuth
