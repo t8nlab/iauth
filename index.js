@@ -52,15 +52,11 @@ class IAuth {
     this.validateIdentifier(this.passwordField)
   }
 
-  /* ---------- SQL IDENTIFIER SAFETY ---------- */
-
   validateIdentifier(value) {
     if (!/^[a-zA-Z0-9_]+$/.test(value)) {
       throw new Error(`Invalid SQL identifier: ${value}`)
     }
   }
-
-  /* ---------- PASSWORD ---------- */
 
   hashPassword(password) {
     const salt = bcrypt.genSaltSync(12)
@@ -70,8 +66,6 @@ class IAuth {
   verifyPassword(password, hash) {
     return bcrypt.compareSync(password, hash)
   }
-
-  /* ---------- JWT ---------- */
 
   signToken(payload) {
     return jwt.sign(payload, this.secret, { expiresIn: this.exp })
@@ -84,8 +78,6 @@ class IAuth {
       return null
     }
   }
-
-  /* ---------- TOKEN ---------- */
 
   extractToken(req) {
 
@@ -118,8 +110,6 @@ class IAuth {
     return user
   }
 
-  /* ---------- USER SANITIZER ---------- */
-
   sanitizeUser(user) {
 
     if (!user) return null
@@ -134,8 +124,6 @@ class IAuth {
 
     return safe
   }
-
-  /* ---------- DATABASE HELPERS ---------- */
 
   normalizeResult(result) {
     return result?.rows || result
@@ -179,8 +167,6 @@ class IAuth {
 
     return rows?.[0] || null
   }
-
-  /* ---------- AUTH ---------- */
 
   signUp(data) {
 
@@ -254,8 +240,6 @@ class IAuth {
     return result
   }
 
-  /* ---------- OAUTH ---------- */
-
   oauth(provider) {
 
     const cfg = this.oauthConfig[provider]
@@ -300,7 +284,7 @@ class IAuth {
           redirect_uri: cfg.redirect,
           grant_type: "authorization_code"
         })
-        
+
         const res = drift(
           fetch(base.token, {
             method: "POST",
@@ -311,7 +295,8 @@ class IAuth {
           })
         )
 
-        return res.json()
+        const body = typeof res === "string" ? res : res.body
+        return JSON.parse(body)
       },
 
       profile: (token) => {
@@ -324,7 +309,8 @@ class IAuth {
           })
         )
 
-        return res.json()
+        const body = typeof res === "string" ? res : res.body
+        return JSON.parse(body)
       }
 
     }
