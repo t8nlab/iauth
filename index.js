@@ -293,17 +293,21 @@ class IAuth {
           throw new Error("OAuth state mismatch (CSRF protection)")
         }
 
+        const params = new url.SearchParams({
+          client_id: cfg.clientId,
+          client_secret: cfg.clientSecret,
+          code,
+          redirect_uri: cfg.redirect,
+          grant_type: "authorization_code"
+        })
+        
         const res = drift(
           fetch(base.token, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-              client_id: cfg.clientId,
-              client_secret: cfg.clientSecret,
-              code,
-              redirect_uri: cfg.redirect,
-              grant_type: "authorization_code"
-            })
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: params.toString()
           })
         )
 
