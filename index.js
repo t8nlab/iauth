@@ -1,7 +1,7 @@
-import { jwt, url } from "@titanpl/native"
+import { jwt, url, crypto } from "@titanpl/native"
 import "@titanpl/node/globals"
 import bcrypt from "bcryptjs"
-import { registerExtension } from "./utils/registerExtension";
+import { registerExtension } from "./utils/registerExtension"
 
 const oauthProviders = {
   google: {
@@ -10,14 +10,12 @@ const oauthProviders = {
     user: "https://www.googleapis.com/oauth2/v2/userinfo",
     scope: "openid email profile"
   },
-
   github: {
     auth: "https://github.com/login/oauth/authorize",
     token: "https://github.com/login/oauth/access_token",
     user: "https://api.github.com/user",
     scope: "read:user user:email"
   },
-
   discord: {
     auth: "https://discord.com/api/oauth2/authorize",
     token: "https://discord.com/api/oauth2/token",
@@ -30,19 +28,36 @@ class IAuth {
 
   constructor(config = {}) {
 
-    this.secret = config.secret || process.env.AUTH_SECRET || "secret"
+    this.secret = config.secret || process.env.AUTH_SECRET
+    if (!this.secret) throw new Error("AUTH_SECRET must be defined")
+
     this.exp = config.exp || "7d"
 
-    this.conn = config.db?.conn || null
+    this.conn = config.db?.conn
     this.table = config.db?.table || "users"
 
     this.identityField = config.db?.identityField || "email"
     this.passwordField = config.db?.passwordField || "password"
 
+    this.scope = config.db?.scope || ["id", this.identityField]
+    this.columns = [...new Set([...this.scope, this.passwordField])]
+
     this.beforeLogin = config.beforeLogin || null
     this.afterLogin = config.afterLogin || null
 
     this.oauthConfig = config.oauth || {}
+
+    this.validateIdentifier(this.table)
+    this.validateIdentifier(this.identityField)
+    this.validateIdentifier(this.passwordField)
+  }
+
+  /* ---------- SQL IDENTIFIER SAFETY ---------- */
+
+  validateIdentifier(value) {
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+      throw new Error(`Invalid SQL identifier: ${value}`)
+    }
   }
 
   /* ---------- PASSWORD ---------- */
@@ -59,23 +74,12 @@ class IAuth {
   /* ---------- JWT ---------- */
 
   signToken(payload) {
-    return jwt.sign(payload, this.secret, {
-      expiresIn: this.exp
-    })
+    return jwt.sign(payload, this.secret, { expiresIn: this.exp })
   }
 
   verifyToken(token) {
-
     try {
-
-      const decoded = jwt.verify(token, this.secret)
-
-      if (decoded.exp) {
-        decoded.exp_readable = new Date(decoded.exp * 1000).toISOString()
-      }
-
-      return decoded
-
+      return jwt.verify(token, this.secret)
     } catch {
       return null
     }
@@ -86,7 +90,6 @@ class IAuth {
   extractToken(req) {
 
     const header = req.headers?.authorization
-
     if (!header) return null
 
     if (header.startsWith("Bearer ")) {
@@ -99,7 +102,6 @@ class IAuth {
   getUser(req) {
 
     const token = this.extractToken(req)
-
     if (!token) return null
 
     return this.verifyToken(token)
@@ -116,39 +118,66 @@ class IAuth {
     return user
   }
 
-  /* ---------- DATABASE ---------- */
+  /* ---------- USER SANITIZER ---------- */
+
+  sanitizeUser(user) {
+
+    if (!user) return null
+
+    const safe = {}
+
+    for (const field of this.scope) {
+      if (user[field] !== undefined) {
+        safe[field] = user[field]
+      }
+    }
+
+    return safe
+  }
+
+  /* ---------- DATABASE HELPERS ---------- */
+
+  normalizeResult(result) {
+    return result?.rows || result
+  }
 
   findUser(identity) {
 
     if (!this.conn) return null
 
     const sql = `
-      SELECT * FROM ${this.table}
-      WHERE ${this.identityField} = ?
+      SELECT ${this.columns.join(", ")}
+      FROM ${this.table}
+      WHERE ${this.identityField} = $1
       LIMIT 1
     `
 
     const result = drift(this.conn.query(sql, [identity]))
+    const rows = this.normalizeResult(result)
 
-    return result?.[0] || null
+    return rows?.[0] || null
   }
 
   createUser(data) {
 
     if (!this.conn) return null
 
+    const fields = Object.keys(data)
+    const placeholders = fields.map((_, i) => `$${i + 1}`)
+
     const sql = `
       INSERT INTO ${this.table}
-      (${this.identityField}, ${this.passwordField})
-      VALUES (?, ?)
+      (${fields.join(", ")})
+      VALUES (${placeholders.join(", ")})
+      RETURNING *
     `
 
-    drift(this.conn.query(sql, [
-      data[this.identityField],
-      data[this.passwordField]
-    ]))
+    const values = fields.map(f => data[f])
 
-    return this.findUser(data[this.identityField])
+    const result = drift(this.conn.query(sql, values))
+    const rows = this.normalizeResult(result)
+
+    return rows?.[0] || null
   }
 
   /* ---------- AUTH ---------- */
@@ -158,12 +187,23 @@ class IAuth {
     const identity = data[this.identityField]
     const password = data[this.passwordField]
 
+    if (!identity || !password) {
+      return { error: "Identity and password required" }
+    }
+
+    const existing = this.findUser(identity)
+    if (existing) {
+      return { error: "User already exists" }
+    }
+
     const hash = this.hashPassword(password)
 
-    const user = this.createUser({
-      [this.identityField]: identity,
+    const userData = {
+      ...data,
       [this.passwordField]: hash
-    })
+    }
+
+    const user = this.createUser(userData)
 
     if (!user) {
       return { error: "User creation failed" }
@@ -174,7 +214,10 @@ class IAuth {
       [this.identityField]: user[this.identityField]
     })
 
-    return { user, token }
+    return {
+      user: this.sanitizeUser(user),
+      token
+    }
   }
 
   signIn(data) {
@@ -201,7 +244,10 @@ class IAuth {
       [this.identityField]: user[this.identityField]
     })
 
-    const result = { user, token }
+    const result = {
+      user: this.sanitizeUser(user),
+      token
+    }
 
     if (this.afterLogin) this.afterLogin(result)
 
@@ -213,10 +259,7 @@ class IAuth {
   oauth(provider) {
 
     const cfg = this.oauthConfig[provider]
-
-    if (!cfg) {
-      throw new Error(`OAuth provider not configured: ${provider}`)
-    }
+    if (!cfg) throw new Error(`OAuth provider not configured: ${provider}`)
 
     const base = oauthProviders[provider]
 
@@ -224,17 +267,31 @@ class IAuth {
 
       loginUrl: () => {
 
+        const state = crypto.randomUUID()
+
+        const scope = cfg.scope
+          ? [...new Set((base.scope + " " + cfg.scope).split(" "))].join(" ")
+          : base.scope
+
         const params = new url.SearchParams({
           client_id: cfg.clientId,
           redirect_uri: cfg.redirect,
           response_type: "code",
-          scope: base.scope
+          scope,
+          state
         })
 
-        return base.auth + "?" + params.toString()
+        return {
+          url: base.auth + "?" + params.toString(),
+          state
+        }
       },
 
-      exchange: async (code) => {
+      exchange: async (code, state, expectedState) => {
+
+        if (state !== expectedState) {
+          throw new Error("OAuth state mismatch (CSRF protection)")
+        }
 
         const res = await fetch(base.token, {
           method: "POST",
@@ -267,6 +324,6 @@ class IAuth {
 
 }
 
-registerExtension("auth", IAuth);
+registerExtension("auth", IAuth)
 
 export default IAuth

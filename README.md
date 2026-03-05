@@ -1,10 +1,10 @@
-# @t8n/iauth
+# `@t8n/iauth`
 
 Intelligent authentication extension for the **TitanPL framework**.
 
 `@t8n/iauth` provides a **simple, synchronous authentication system** designed specifically for the **TitanPL Gravity Runtime**. It integrates password hashing, JWT authentication, OAuth login, and database-backed user management into a minimal API that works seamlessly with Titan actions.
 
-The library follows Titan’s **sync-first architecture** and uses Titan native APIs wherever possible.
+The library follows Titan’s **sync-first architecture** and uses **Titan native APIs** wherever possible.
 
 ---
 
@@ -33,11 +33,11 @@ This results in duplicated authentication logic across multiple projects.
 
 ## Authentication
 
-* Password hashing using **bcryptjs**
+* Password hashing using **bcrypt**
 * JWT token generation using **Titan native JWT**
 * Token verification
 * Automatic token extraction from request headers
-* Protected route helper (`guard`)
+* Protected route helper (`guard()`)
 
 ## Database Integration
 
@@ -45,6 +45,7 @@ This results in duplicated authentication logic across multiple projects.
 * Built-in user creation
 * Configurable identity field
 * Configurable password column
+* Automatic duplicate user prevention
 
 ## OAuth Login
 
@@ -102,6 +103,7 @@ const auth = new IAuth({
 | `db.table`         | User table name                       |
 | `db.identityField` | Identity column (default: `email`)    |
 | `db.passwordField` | Password column (default: `password`) |
+| `db.scope`         | Fields returned to client             |
 | `beforeLogin`      | Hook executed before login            |
 | `afterLogin`       | Hook executed after login             |
 | `oauth`            | OAuth provider configuration          |
@@ -143,11 +145,12 @@ Example:
 import IAuth from "@t8n/iauth"
 
 export const auth = new IAuth({
-  secret: "supersecret",
+  secret: t.env.AUTH_SECRET,
 
   db: {
     conn: db,
-    table: "users"
+    table: "users",
+    scope: ["id", "email"]
   },
 
   oauth: {
@@ -190,10 +193,22 @@ export function profile(req) {
 
 # Example Database Table
 
+Example MySQL table:
+
 ```sql
 CREATE TABLE users (
   id INT PRIMARY KEY AUTO_INCREMENT,
   email VARCHAR(255) UNIQUE,
+  password TEXT
+);
+```
+
+Example PostgreSQL table:
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE,
   password TEXT
 );
 ```
@@ -302,7 +317,9 @@ export function login() {
 
   const google = auth.oauth("google")
 
-  return response.redirect(google.loginUrl())
+  const { url } = google.loginUrl()
+
+  return response.redirect(url)
 
 }
 ```
@@ -327,9 +344,9 @@ export function getuser(req) {
 
   const google = auth.oauth("google")
 
-  const { code } = req.query
+  const { code, state } = req.query
 
-  const tokenData = google.exchange(code)
+  const tokenData = google.exchange(code, state, state)
 
   const profile = google.profile(tokenData.access_token)
 
@@ -385,11 +402,11 @@ Handles the OAuth callback.
 ```
 GET /lg
      ↓
-Redirect to Google
+Redirect to OAuth provider
      ↓
 User logs in
      ↓
-Google redirects back
+Provider redirects back
      ↓
 GET /user?code=xxxxx
      ↓
@@ -436,7 +453,7 @@ user + token returned
 ## Login
 
 ```
-email lookup in database
+identity lookup in database
         ↓
 password verified using bcrypt
         ↓

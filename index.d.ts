@@ -7,19 +7,7 @@
  * TitanPL Gravity Runtime. It includes password hashing, JWT authentication,
  * OAuth login, and database-backed user management.
  *
- * This library follows Titan's sync-first architecture and integrates with
- * Titan native APIs.
- *
- * @example
- * import IAuth from "@t8n/iauth"
- *
- * const auth = new IAuth({
- *   secret: "supersecret",
- *   db: {
- *     conn: db,
- *     table: "users"
- *   }
- * })
+ * Built for Titan’s synchronous execution model.
  */
 
 export type OAuthProvider = "google" | "github" | "discord"
@@ -29,124 +17,102 @@ export type OAuthProvider = "google" | "github" | "discord"
  */
 export interface OAuthProviderConfig {
 
-  /**
-   * OAuth client ID issued by the provider.
-   */
+  /** OAuth client ID issued by the provider */
   clientId: string
 
-  /**
-   * OAuth client secret issued by the provider.
-   */
+  /** OAuth client secret issued by the provider */
   clientSecret: string
 
-  /**
-   * Redirect URL for OAuth callback.
-   */
+  /** OAuth redirect callback URL */
   redirect: string
+
+  /**
+   * Optional extra OAuth scopes.
+   * These will be merged with provider defaults.
+   */
+  scope?: string
 }
 
 /**
- * Database configuration used by the authentication system.
+ * Database configuration for authentication.
  */
 export interface DatabaseConfig {
 
-  /**
-   * Database connection instance.
-   */
+  /** Database connection instance */
   conn: any
 
-  /**
-   * User table name.
-   */
+  /** User table name */
   table: string
 
   /**
-   * Identity column used for login.
+   * Column used for login identity.
    *
-   * Default: `email`
+   * Default: `"email"`
    */
   identityField?: string
 
   /**
    * Password column name.
    *
-   * Default: `password`
+   * Default: `"password"`
    */
   passwordField?: string
+
+  /**
+   * Fields returned to the client.
+   *
+   * Password is never included.
+   */
+  scope?: string[]
 }
 
 /**
- * Authentication configuration options.
+ * Main authentication configuration.
  */
 export interface AuthConfig {
 
-  /**
-   * Secret key used to sign JWT tokens.
-   */
+  /** Secret used for signing JWT tokens */
   secret: string
 
   /**
-   * JWT token expiration time.
+   * JWT expiration time.
    *
    * Default: `"7d"`
    */
   exp?: string
 
-  /**
-   * Database configuration.
-   */
+  /** Database configuration */
   db?: DatabaseConfig
 
-  /**
-   * OAuth provider configuration.
-   */
-  oauth?: Record<OAuthProvider, OAuthProviderConfig>
+  /** OAuth providers configuration */
+  oauth?: Partial<Record<OAuthProvider, OAuthProviderConfig>>
 
-  /**
-   * Hook executed before login validation.
-   */
+  /** Hook executed before login */
   beforeLogin?: (data: any) => void
 
-  /**
-   * Hook executed after successful login.
-   */
+  /** Hook executed after login */
   afterLogin?: (result: any) => void
 }
 
 /**
- * Titan request object.
+ * Titan request interface.
  */
 export interface TitanRequest {
 
-  /**
-   * Request headers.
-   */
   headers?: Record<string, string>
 
-  /**
-   * Request body.
-   */
   body?: any
 
-  /**
-   * URL query parameters.
-   */
   query?: Record<string, string>
 }
 
 /**
- * Successful authentication result.
+ * Successful authentication response.
  */
 export interface AuthResult {
 
-  /**
-   * Authenticated user object.
-   */
   user: any
 
-  /**
-   * Generated JWT token.
-   */
   token: string
 }
 
@@ -155,31 +121,40 @@ export interface AuthResult {
  */
 export interface AuthError {
 
-  /**
-   * Error message.
-   */
   error: string
 }
 
 /**
- * OAuth helper utilities returned by `auth.oauth()`.
+ * OAuth login response containing redirect URL and state.
+ */
+export interface OAuthLoginResult {
+
+  url: string
+
+  state: string
+}
+
+/**
+ * OAuth helper utilities.
  */
 export interface OAuthHelper {
 
   /**
-   * Generate the OAuth login redirect URL.
+   * Generate OAuth login URL and CSRF state.
    */
-  loginUrl(): string
+  loginUrl(): OAuthLoginResult
 
   /**
    * Exchange OAuth authorization code for access token.
    *
-   * @param code Authorization code returned by the provider
+   * @param code OAuth authorization code
+   * @param state Returned state
+   * @param expectedState Stored state for verification
    */
-  exchange(code: string): Promise<any>
+  exchange(code: string, state: string, expectedState: string): Promise<any>
 
   /**
-   * Fetch OAuth user profile using access token.
+   * Fetch OAuth user profile.
    *
    * @param token OAuth access token
    */
@@ -187,111 +162,51 @@ export interface OAuthHelper {
 }
 
 /**
- * Main authentication class for TitanPL applications.
- *
- * Provides password authentication, JWT sessions, OAuth login,
- * and protected route helpers.
+ * Main authentication class.
  */
 declare class IAuth {
 
-  /**
-   * Create a new authentication instance.
-   *
-   * @param config Authentication configuration
-   */
   constructor(config?: AuthConfig)
 
-  /**
-   * Hash a plaintext password using bcrypt.
-   *
-   * @param password Plaintext password
-   * @returns Hashed password
-   */
+  /** Hash password using bcrypt */
   hashPassword(password: string): string
 
-  /**
-   * Verify a plaintext password against a stored bcrypt hash.
-   *
-   * @param password Plaintext password
-   * @param hash Stored password hash
-   */
+  /** Verify password against bcrypt hash */
   verifyPassword(password: string, hash: string): boolean
 
-  /**
-   * Generate a signed JWT token.
-   *
-   * @param payload JWT payload
-   */
+  /** Generate JWT token */
   signToken(payload: Record<string, any>): string
 
-  /**
-   * Verify a JWT token.
-   *
-   * @param token JWT token
-   */
+  /** Verify JWT token */
   verifyToken(token: string): Record<string, any> | null
 
-  /**
-   * Extract JWT token from Authorization header.
-   *
-   * Supports Bearer tokens.
-   *
-   * @param req Titan request
-   */
+  /** Extract token from Authorization header */
   extractToken(req: TitanRequest): string | null
 
-  /**
-   * Get authenticated user from request token.
-   *
-   * @param req Titan request
-   */
+  /** Get authenticated user from request */
   getUser(req: TitanRequest): Record<string, any> | null
 
-  /**
-   * Protect a route using JWT authentication.
-   *
-   * @param req Titan request
-   */
+  /** Protect route using JWT authentication */
   guard(req: TitanRequest): Record<string, any> | AuthError
 
-  /**
-   * Find a user in the database by identity field.
-   *
-   * @param identity Identity value (email/username)
-   */
+  /** Find user in database by identity */
   findUser(identity: string): any | null
 
-  /**
-   * Create a new user in the configured database.
-   *
-   * @param data User data
-   */
+  /** Create a new user in database */
   createUser(data: Record<string, any>): any | null
 
-  /**
-   * Register a new user.
-   *
-   * Automatically hashes password and generates JWT token.
-   *
-   * @param data User credentials
-   */
+  /** Register new user */
   signUp(data: Record<string, any>): AuthResult | AuthError
 
-  /**
-   * Authenticate an existing user.
-   *
-   * @param data Login credentials
-   */
+  /** Authenticate existing user */
   signIn(data: Record<string, any>): AuthResult | AuthError
 
   /**
    * Access OAuth provider utilities.
    *
-   * @param provider OAuth provider name
-   *
    * @example
    * const google = auth.oauth("google")
-   * const url = google.loginUrl()
+   * const { url, state } = google.loginUrl()
    */
   oauth(provider: OAuthProvider): OAuthHelper
 }
