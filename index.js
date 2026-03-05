@@ -1,4 +1,4 @@
-import { jwt, url, crypto } from "@titanpl/native"
+import { jwt, url, crypto, fetch } from "@titanpl/native"
 import "@titanpl/node/globals"
 import bcrypt from "bcryptjs"
 import { registerExtension } from "./utils/registerExtension"
@@ -267,7 +267,7 @@ class IAuth {
 
       loginUrl: () => {
 
-        const state = crypto.randomUUID()
+        const state = crypto.uuid()
 
         const scope = cfg.scope
           ? [...new Set((base.scope + " " + cfg.scope).split(" "))].join(" ")
@@ -287,34 +287,38 @@ class IAuth {
         }
       },
 
-      exchange: async (code, state, expectedState) => {
+      exchange: (code, state, expectedState) => {
 
         if (state !== expectedState) {
           throw new Error("OAuth state mismatch (CSRF protection)")
         }
 
-        const res = await fetch(base.token, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            client_id: cfg.clientId,
-            client_secret: cfg.clientSecret,
-            code,
-            redirect_uri: cfg.redirect,
-            grant_type: "authorization_code"
+        const res = drift(
+          fetch(base.token, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: cfg.clientId,
+              client_secret: cfg.clientSecret,
+              code,
+              redirect_uri: cfg.redirect,
+              grant_type: "authorization_code"
+            })
           })
-        })
+        )
 
         return res.json()
       },
 
-      profile: async (token) => {
+      profile: (token) => {
 
-        const res = await fetch(base.user, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
+        const res = drift(
+          fetch(base.user, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+        )
 
         return res.json()
       }
