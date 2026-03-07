@@ -5,33 +5,10 @@
  * @description
  * `@t8n/iauth` provides a synchronous authentication system designed for the
  * TitanPL Gravity Runtime. It includes password hashing, JWT authentication,
- * OAuth login, and database-backed user management.
+ * Database-backed user management.
  *
  * Built for Titan’s synchronous execution model.
  */
-
-export type OAuthProvider = "google" | "github" | "discord"
-
-/**
- * OAuth provider configuration.
- */
-export interface OAuthProviderConfig {
-
-  /** OAuth client ID issued by the provider */
-  clientId: string
-
-  /** OAuth client secret issued by the provider */
-  clientSecret: string
-
-  /** OAuth redirect callback URL */
-  redirect: string
-
-  /**
-   * Optional extra OAuth scopes.
-   * These will be merged with provider defaults.
-   */
-  scope?: string
-}
 
 /**
  * Database configuration for authentication.
@@ -84,9 +61,6 @@ export interface AuthConfig {
   /** Database configuration */
   db?: DatabaseConfig
 
-  /** OAuth providers configuration */
-  oauth?: Partial<Record<OAuthProvider, OAuthProviderConfig>>
-
   /** Hook executed before login */
   beforeLogin?: (data: any) => void
 
@@ -122,43 +96,6 @@ export interface AuthResult {
 export interface AuthError {
 
   error: string
-}
-
-/**
- * OAuth login response containing redirect URL and state.
- */
-export interface OAuthLoginResult {
-
-  url: string
-
-  state: string
-}
-
-/**
- * OAuth helper utilities.
- */
-export interface OAuthHelper {
-
-  /**
-   * Generate OAuth login URL and CSRF state.
-   */
-  loginUrl(): OAuthLoginResult
-
-  /**
-   * Exchange OAuth authorization code for access token.
-   *
-   * @param code OAuth authorization code
-   * @param state Returned state
-   * @param expectedState Stored state for verification
-   */
-  exchange(code: string, state: string, expectedState: string): Promise<any>
-
-  /**
-   * Fetch OAuth user profile.
-   *
-   * @param token OAuth access token
-   */
-  profile(token: string): Promise<any>
 }
 
 /**
@@ -201,14 +138,6 @@ declare class IAuth {
   /** Authenticate existing user */
   signIn(data: Record<string, any>): AuthResult | AuthError
 
-  /**
-   * Access OAuth provider utilities.
-   *
-   * @example
-   * const google = auth.oauth("google")
-   * const { url, state } = google.loginUrl()
-   */
-  oauth(provider: OAuthProvider): OAuthHelper
 }
 
 export default IAuth

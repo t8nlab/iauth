@@ -21,7 +21,6 @@ In a typical Titan project, developers must manually implement:
 * token extraction from request headers
 * database user lookup
 * protected route logic
-* OAuth login flows
 
 This results in duplicated authentication logic across multiple projects.
 
@@ -47,15 +46,6 @@ This results in duplicated authentication logic across multiple projects.
 * Configurable password column
 * Automatic duplicate user prevention
 
-## OAuth Login
-
-Supports OAuth login providers:
-
-* Google
-* GitHub
-* Discord
-
-Developers can integrate OAuth authentication in only a few lines of code.
 
 ## Titan Native Compatibility
 
@@ -106,7 +96,6 @@ const auth = new IAuth({
 | `db.scope`         | Fields returned to client             |
 | `beforeLogin`      | Hook executed before login            |
 | `afterLogin`       | Hook executed after login             |
-| `oauth`            | OAuth provider configuration          |
 
 ---
 
@@ -152,14 +141,6 @@ export const auth = new IAuth({
     table: "users",
     scope: ["id", "email"]
   },
-
-  oauth: {
-    google: {
-      clientId: t.env.GOOGLE_CLIENT_ID,
-      clientSecret: t.env.GOOGLE_CLIENT_SECRET,
-      redirect: "http://localhost:5100/user"
-    }
-  }
 })
 ```
 
@@ -190,18 +171,6 @@ export function profile(req) {
 ```
 
 ---
-
-# Example Database Table
-
-Example MySQL table:
-
-```sql
-CREATE TABLE users (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  email VARCHAR(255) UNIQUE,
-  password TEXT
-);
-```
 
 Example PostgreSQL table:
 
@@ -286,136 +255,6 @@ The `guard()` helper automatically:
 # OAuth Login
 
 OAuth allows users to login using external providers such as Google, GitHub, or Discord.
-
----
-
-# OAuth Configuration
-
-```javascript
-const auth = new IAuth({
-  secret: "supersecret",
-
-  oauth: {
-    google: {
-      clientId: "GOOGLE_CLIENT_ID",
-      clientSecret: "GOOGLE_CLIENT_SECRET",
-      redirect: "http://localhost:5100/user"
-    }
-  }
-})
-```
-
----
-
-# OAuth Login Route
-
-```javascript
-import { response } from "@titanpl/native"
-import { auth } from "../auth/config"
-
-export function login() {
-
-  const google = auth.oauth("google")
-
-  const { url } = google.loginUrl()
-
-  return response.redirect(url)
-
-}
-```
-
-Example route:
-
-```
-GET /lg
-```
-
-The user is redirected to the OAuth provider.
-
----
-
-# OAuth Callback Example
-
-```javascript
-import { response } from "@titanpl/native"
-import { auth } from "../auth/config"
-
-export function getuser(req) {
-
-  const google = auth.oauth("google")
-
-  const { code, state } = req.query
-
-  const tokenData = google.exchange(code, state, state)
-
-  const profile = google.profile(tokenData.access_token)
-
-  const token = auth.signToken({
-    email: profile.email
-  })
-
-  return response.json({
-    message: "OAuth login successful",
-    token,
-    user: profile
-  })
-}
-```
-
----
-
-# Route Configuration
-
-OAuth routes must be defined manually in your Titan router.
-
-Example `app.js`:
-
-```javascript
-import t from "@titanpl/route"
-
-t.get("/lg").action("login")
-t.get("/user").action("getuser")
-
-t.get("/").reply("Ready to land on Titan Planet 🚀")
-
-t.start(5100, "Titan Running!")
-```
-
-Routes:
-
-```
-GET /lg
-```
-
-Redirects the user to the OAuth provider.
-
-```
-GET /user
-```
-
-Handles the OAuth callback.
-
----
-
-# OAuth Flow
-
-```
-GET /lg
-     ↓
-Redirect to OAuth provider
-     ↓
-User logs in
-     ↓
-Provider redirects back
-     ↓
-GET /user?code=xxxxx
-     ↓
-Code exchanged for access token
-     ↓
-User profile retrieved
-     ↓
-JWT session created
-```
 
 ---
 
@@ -507,16 +346,6 @@ auth.signUp(data)
 auth.signIn(data)
 ```
 
-## OAuth
-
-```javascript
-auth.oauth("google")
-auth.oauth("github")
-auth.oauth("discord")
-```
-
----
-
 # Why This Makes Titan Development Easier
 
 Without this extension, Titan developers would need to manually implement:
@@ -553,20 +382,6 @@ The library follows Titan design principles:
 * lightweight architecture
 
 `@t8n/iauth` is not a heavy framework. It is a **thin authentication layer designed specifically for Titan**.
-
----
-
-# Future Features
-
-Planned improvements include:
-
-* Role-based authorization
-* Refresh tokens
-* Session-based authentication
-* Password reset flows
-* Email verification
-* Login rate limiting
-* OAuth auto-routing
 
 ---
 

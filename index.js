@@ -1,34 +1,15 @@
-import { jwt, url, crypto, fetch } from "@titanpl/native"
+import { jwt } from "@titanpl/native"
 import "@titanpl/node/globals"
 import bcrypt from "bcryptjs"
 import { registerExtension } from "./utils/registerExtension"
 
-const oauthProviders = {
-  google: {
-    auth: "https://accounts.google.com/o/oauth2/v2/auth",
-    token: "https://oauth2.googleapis.com/token",
-    user: "https://www.googleapis.com/oauth2/v2/userinfo",
-    scope: "openid email profile"
-  },
-  github: {
-    auth: "https://github.com/login/oauth/authorize",
-    token: "https://github.com/login/oauth/access_token",
-    user: "https://api.github.com/user",
-    scope: "read:user user:email"
-  },
-  discord: {
-    auth: "https://discord.com/api/oauth2/authorize",
-    token: "https://discord.com/api/oauth2/token",
-    user: "https://discord.com/api/users/@me",
-    scope: "identify email"
-  }
-}
+
 
 class IAuth {
 
   constructor(config = {}) {
 
-    this.secret = config.secret || process.env.AUTH_SECRET
+    this.secret = config.secret || t.env.AUTH_SECRET
     if (!this.secret) throw new Error("AUTH_SECRET must be defined")
 
     this.exp = config.exp || "7d"
@@ -41,11 +22,6 @@ class IAuth {
 
     this.scope = config.db?.scope || ["id", this.identityField]
     this.columns = [...new Set([...this.scope, this.passwordField])]
-
-    this.beforeLogin = config.beforeLogin || null
-    this.afterLogin = config.afterLogin || null
-
-    this.oauthConfig = config.oauth || {}
 
     this.validateIdentifier(this.table)
     this.validateIdentifier(this.identityField)
@@ -178,22 +154,17 @@ class IAuth {
     }
 
     const existing = this.findUser(identity)
+
     if (existing) {
       return { error: "User already exists" }
     }
 
     const hash = this.hashPassword(password)
 
-    const userData = {
+    const user = this.createUser({
       ...data,
       [this.passwordField]: hash
-    }
-
-    const user = this.createUser(userData)
-
-    if (!user) {
-      return { error: "User creation failed" }
-    }
+    })
 
     const token = this.signToken({
       id: user.id,
@@ -210,8 +181,6 @@ class IAuth {
 
     const identity = data[this.identityField]
     const password = data[this.passwordField]
-
-    if (this.beforeLogin) this.beforeLogin(data)
 
     const user = this.findUser(identity)
 
@@ -230,89 +199,9 @@ class IAuth {
       [this.identityField]: user[this.identityField]
     })
 
-    const result = {
+    return {
       user: this.sanitizeUser(user),
       token
-    }
-
-    if (this.afterLogin) this.afterLogin(result)
-
-    return result
-  }
-
-  oauth(provider) {
-
-    const cfg = this.oauthConfig[provider]
-    if (!cfg) throw new Error(`OAuth provider not configured: ${provider}`)
-
-    const base = oauthProviders[provider]
-
-    return {
-
-      loginUrl: () => {
-
-        const state = crypto.uuid()
-
-        const scope = cfg.scope
-          ? [...new Set((base.scope + " " + cfg.scope).split(" "))].join(" ")
-          : base.scope
-
-        const params = new url.SearchParams({
-          client_id: cfg.clientId,
-          redirect_uri: cfg.redirect,
-          response_type: "code",
-          scope,
-          state
-        })
-
-        return {
-          url: base.auth + "?" + params.toString(),
-          state
-        }
-      },
-
-      exchange: (code, state, expectedState) => {
-
-        if (state !== expectedState) {
-          throw new Error("OAuth state mismatch (CSRF protection)")
-        }
-
-        const params = new url.SearchParams({
-          client_id: cfg.clientId,
-          client_secret: cfg.clientSecret,
-          code,
-          redirect_uri: cfg.redirect,
-          grant_type: "authorization_code"
-        })
-
-        const res = drift(
-          fetch(base.token, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: params.toString()
-          })
-        )
-
-        const body = typeof res === "string" ? res : res.body
-        return JSON.parse(body)
-      },
-
-      profile: (token) => {
-
-        const res = drift(
-          fetch(base.user, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          })
-        )
-
-        const body = typeof res === "string" ? res : res.body
-        return JSON.parse(body)
-      }
-
     }
   }
 
