@@ -110,9 +110,9 @@ class IAuth {
     if (!this.conn) return null
 
     const sql = `
-      SELECT ${this.columns.join(", ")}
+      SELECT ${this.columns.map(c => `${c}::text AS ${c}`).join(", ")}
       FROM ${this.table}
-      WHERE ${this.identityField} = $1
+      WHERE ${this.identityField}::text = $1
       LIMIT 1
     `
 
@@ -133,7 +133,7 @@ class IAuth {
       INSERT INTO ${this.table}
       (${fields.join(", ")})
       VALUES (${placeholders.join(", ")})
-      RETURNING *
+      RETURNING ${this.columns.map(c => `${c}::text AS ${c}`).join(", ")}
     `
 
     const values = fields.map(f => data[f])
